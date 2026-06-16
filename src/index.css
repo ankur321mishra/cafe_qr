@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+/* ============================
+   CUSTOM THEME — The Brew House
+   ============================ */
+@theme {
+  /* Primary Palette — Warm Cafe */
+  --color-cream: #FDF6EC;
+  --color-cream-dark: #F5ECDE;
+  --color-beige: #E8D5B7;
+  --color-beige-warm: #D4B896;
+  --color-brown-light: #B8956A;
+  --color-brown: #8B6F47;
+  --color-brown-dark: #5C4A32;
+  --color-brown-darkest: #3A2F20;
+  --color-espresso: #2C1810;
+
+  /* Accent Colors */
+  --color-green-muted: #7A9E7E;
+  --color-green-light: #A8C5AB;
+  --color-green-dark: #4F6F52;
+  --color-terracotta: #C07C56;
+  --color-gold: #D4A852;
+  --color-gold-light: #E8C97A;
+
+  /* Status Colors */
+  --color-status-new: #3B82F6;
+  --color-status-preparing: #F59E0B;
+  --color-status-ready: #10B981;
+  --color-status-completed: #6B7280;
+
+  /* Fonts */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+}
+
+/* ============================
+   BASE STYLES
+   ============================ */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-cream);
+    color: #2C2520;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: var(--color-beige-warm);
+    color: var(--color-brown-darkest);
+  }
+}
+
+/* ============================
+   CUSTOM UTILITIES
+   ============================ */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+}
+
+/* ============================
+   COMPONENT STYLES
+   ============================ */
+@layer components {
+  /* Customer gradient backgrounds */
+  .bg-cafe-gradient {
+    background: linear-gradient(135deg, #FDF6EC 0%, #F5ECDE 50%, #E8D5B7 100%);
+  }
+
+  .bg-brown-gradient {
+    background: linear-gradient(135deg, #8B6F47 0%, #5C4A32 100%);
+  }
+
+  .bg-green-gradient {
+    background: linear-gradient(135deg, #7A9E7E 0%, #4F6F52 100%);
+  }
+
+  /* Glass effect */
+  .glass {
+    background: rgba(253, 246, 236, 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .glass-white {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+
+  /* Category pill active state */
+  .category-pill-active {
+    background: var(--color-brown);
+    color: white;
+    box-shadow: 0 4px 12px rgba(139, 111, 71, 0.3);
+  }
+
+  /* Menu card hover */
+  .menu-card-hover {
+    transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .menu-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(44, 24, 16, 0.12);
+  }
+
+  /* Status badges */
+  .status-new {
+    background-color: #EFF6FF;
+    color: #2563EB;
+  }
+  .status-preparing {
+    background-color: #FFFBEB;
+    color: #D97706;
+  }
+  .status-ready {
+    background-color: #ECFDF5;
+    color: #059669;
+  }
+  .status-completed {
+    background-color: #F3F4F6;
+    color: #4B5563;
+  }
+
+  /* Pulse animation for new orders */
+  .pulse-dot {
+    animation: pulse-dot 2s infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.4); }
+  }
+
+  /* Slide in animation */
+  .slide-up {
+    animation: slideUp 0.4s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Fade in */
+  .fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Cart bounce animation */
+  .cart-bounce {
+    animation: cartBounce 0.4s ease-out;
+  }
+
+  @keyframes cartBounce {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+  }
+
+  /* Success checkmark animation */
+  .check-animate {
+    animation: checkDraw 0.6s ease-out 0.2s both;
+  }
+
+  @keyframes checkDraw {
+    0% { stroke-dashoffset: 100; }
+    100% { stroke-dashoffset: 0; }
+  }
+}
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap');
