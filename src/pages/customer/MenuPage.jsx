@@ -7,23 +7,16 @@ import { apiClient } from '../../utils/apiClient';
 import toast from 'react-hot-toast';
 import useApiWakeup from '../../hooks/useApiWakeup';
 import WakeupBanner from '../../components/WakeupBanner';
+import MenuSkeleton from '../../components/skeletons/MenuSkeleton';
 
 export default function MenuPage() {
-  const { items, categories, getItemsByCategory, getPopularItems, getFeaturedItems, refreshMenu } = useMenu();
+  const { items, categories, isLoading, error, getItemsByCategory, getPopularItems, getFeaturedItems, refreshMenu } = useMenu();
   const { addItem, setTable, tableNumber, itemCount } = useCart();
   const [searchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const { status, retry } = useApiWakeup();
-  const [hasTriggeredFetch, setHasTriggeredFetch] = useState(false);
-
-  useEffect(() => {
-    if (status === 'ready' && !hasTriggeredFetch && items.length === 0) {
-      refreshMenu();
-      setHasTriggeredFetch(true);
-    }
-  }, [status, hasTriggeredFetch, items.length, refreshMenu]);
 
   // Detect table number from URL and validate
   useEffect(() => {
@@ -209,24 +202,20 @@ export default function MenuPage() {
           <span className="text-xs text-brown-light font-medium">{filteredItems.length} items</span>
         </div>
 
-        {status === 'error' ? (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-3">⚠️</div>
-            <p className="text-sm text-brown-light font-medium">Failed to load menu</p>
-            <p className="text-xs text-brown-light/60 mt-1">Please check your connection and try again.</p>
+        {error ? (
+          <div className="bg-white rounded-xl border border-red-100 p-6 text-center my-6">
+            <div className="text-red-500 mb-2">⚠️</div>
+            <p className="text-sm font-medium text-red-600">Failed to load menu. Check your connection and try again.</p>
+            <button
+              onClick={refreshMenu}
+              className="mt-4 px-5 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition-colors"
+            >
+              Retry
+            </button>
           </div>
-        ) : status === 'waking' || status === 'idle' ? (
-          <div className="grid grid-cols-2 gap-3 animate-pulse">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-white rounded-xl border border-beige/40 overflow-hidden h-48">
-                <div className="h-28 bg-beige/30"></div>
-                <div className="p-3">
-                  <div className="h-4 bg-beige/40 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-beige/30 rounded w-full mb-1"></div>
-                  <div className="h-3 bg-beige/30 rounded w-5/6"></div>
-                </div>
-              </div>
-            ))}
+        ) : isLoading || status === 'waking' || status === 'idle' ? (
+          <div className="mt-4">
+            <MenuSkeleton />
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-12">

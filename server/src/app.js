@@ -5,7 +5,6 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 
 import config from './config/index.js';
-import corsOptions from './config/cors.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { generalLimiter } from './middleware/rateLimiter.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -18,7 +17,25 @@ const app = express();
 app.use(helmet());
 
 // 2. CORS
-app.use(cors(corsOptions));
+const allowedOrigins = [
+  process.env.FRONTEND_URL,              // production Vercel URL
+  'http://localhost:5173',               // Vite dev server default
+  'http://localhost:4173',               // Vite preview
+  'http://localhost:3000',               // alternative dev port
+].filter(Boolean)                         // remove undefined if FRONTEND_URL not set
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (curl, Postman, server-to-server)
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.includes(origin)) return callback(null, true)
+    callback(new Error(`CORS blocked: origin ${origin} is not in the allowlist`))
+  },
+  credentials: true,          // required if frontend sends cookies or Authorization headers
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}))
+app.options('*', cors())
 
 // 3. Body parsers (limit payload size to prevent DOS)
 app.use(express.json({ limit: '10kb' }));

@@ -3,6 +3,14 @@ import config from './config/index.js';
 import prisma from './config/database.js';
 import logger from './middleware/requestLogger.js';
 
+if (!process.env.FRONTEND_URL) {
+  console.warn(
+    '[CafeQR] WARNING: FRONTEND_URL env var is not set. ' +
+    'CORS will only allow localhost origins. ' +
+    'Set FRONTEND_URL in your Render environment variables.'
+  )
+}
+
 // Graceful shutdown handling
 const signals = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
 

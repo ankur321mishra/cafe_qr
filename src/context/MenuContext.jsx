@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { apiClient } from '../utils/apiClient';
 import { useAuth } from './AuthContext';
+import useFetch from '../hooks/useFetch';
 
 const MenuContext = createContext(null);
 
@@ -8,30 +9,25 @@ export function MenuProvider({ children }) {
   const { user, isLoading: isAuthLoading } = useAuth();
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const { data: itemsData, loading: itemsLoading, error: itemsError, refetch: refetchItems } = useFetch('/api/v1/menu/items');
+  const { data: catsData, loading: catsLoading, error: catsError, refetch: refetchCats } = useFetch('/api/v1/menu/categories');
 
-  const fetchMenu = async () => {
-    try {
-      setIsLoading(true);
-      const [itemsRes, catsRes] = await Promise.all([
-        apiClient('/api/v1/menu/items'),
-        apiClient('/api/v1/menu/categories')
-      ]);
-      
-      if (itemsRes.success) setItems(itemsRes.data);
-      if (catsRes.success) setCategories(catsRes.data);
-    } catch (err) {
-      console.error('Failed to fetch menu:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const isLoading = itemsLoading || catsLoading || isAuthLoading;
+  const error = itemsError || catsError;
 
   useEffect(() => {
-    if (!isAuthLoading && user) {
-      fetchMenu();
-    }
-  }, [isAuthLoading, user]);
+    if (itemsData) setItems(itemsData);
+  }, [itemsData]);
+
+  useEffect(() => {
+    if (catsData) setCategories(catsData);
+  }, [catsData]);
+
+  const refreshMenu = () => {
+    refetchItems();
+    refetchCats();
+  };
 
   const addItem = async (item) => {
     try {
@@ -144,6 +140,7 @@ export function MenuProvider({ children }) {
       items,
       categories,
       isLoading,
+      error,
       addItem,
       updateItem,
       deleteItem,
@@ -154,7 +151,7 @@ export function MenuProvider({ children }) {
       getPopularItems,
       getFeaturedItems,
       getItem,
-      refreshMenu: fetchMenu,
+      refreshMenu,
     }}>
       {children}
     </MenuContext.Provider>

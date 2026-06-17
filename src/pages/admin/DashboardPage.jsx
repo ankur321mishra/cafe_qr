@@ -2,54 +2,55 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { IndianRupee, ShoppingBag, ArrowUpRight, TrendingUp, Users } from 'lucide-react';
 import { useOrders } from '../../context/OrderContext';
-import { apiClient } from '../../utils/apiClient';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import useFetch from '../../hooks/useFetch';
+import AdminSkeleton from '../../components/skeletons/AdminSkeleton';
 
 export default function DashboardPage() {
   const { orders } = useOrders();
-  const [stats, setStats] = useState(null);
-  const [revenueData, setRevenueData] = useState([]);
-  const [topItems, setTopItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: stats, loading: statsLoading, error: statsError, refetch: refetchStats } = useFetch('/api/v1/analytics/dashboard');
+  const { data: revRes, loading: revLoading, error: revError, refetch: refetchRev } = useFetch('/api/v1/analytics/revenue?days=7');
+  const { data: topRes, loading: topLoading, error: topError, refetch: refetchTop } = useFetch('/api/v1/analytics/top-items?limit=5');
 
-  useEffect(() => {
-    async function fetchDashboard() {
-      try {
-        const [dashRes, revRes, topRes] = await Promise.all([
-          apiClient('/api/v1/analytics/dashboard'),
-          apiClient('/api/v1/analytics/revenue?days=7'),
-          apiClient('/api/v1/analytics/top-items?limit=5')
-        ]);
-        
-        if (dashRes.success) setStats(dashRes.data);
-        if (revRes.success) {
-          // Format for chart: { day: 'Mon', revenue: 120 }
-          const formatted = revRes.data.map(d => {
-            const date = new Date(d.date);
-            return {
-              day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-              revenue: d.revenue,
-              orders: Math.floor(d.revenue / 200) // mock orders count since API doesn't return it
-            };
-          });
-          setRevenueData(formatted);
-        }
-        if (topRes.success) {
-          // Format for chart: { name: 'Latte', count: 20 }
-          setTopItems(topRes.data.map(i => ({ name: i.name, count: i.totalQuantity })));
-        }
-      } catch (err) {
-        console.error('Failed to fetch dashboard data:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchDashboard();
-  }, []);
+  const isLoading = statsLoading || revLoading || topLoading;
+  const error = statsError || revError || topError;
 
-  if (isLoading || !stats) {
-    return <div className="p-8 text-center text-gray-500">Loading dashboard...</div>;
+  const handleRetry = () => {
+    refetchStats();
+    refetchRev();
+    refetchTop();
+  };
+
+  if (isLoading) {
+    return <AdminSkeleton />;
   }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-xl border border-red-100 p-8 text-center mt-6">
+        <div className="text-red-500 mb-3 text-4xl">⚠️</div>
+        <p className="text-base font-medium text-red-600 mb-1">Failed to load dashboard data</p>
+        <p className="text-sm text-red-500/80 mb-5">{error.message || 'Check your connection and try again.'}</p>
+        <button
+          onClick={handleRetry}
+          className="px-6 py-2.5 bg-red-50 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-100 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const revenueData = revRes ? revRes.map(d => {
+    const date = new Date(d.date);
+    return {
+      day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      revenue: d.revenue,
+      orders: Math.floor(d.revenue / 200)
+    };
+  }) : [];
+
+  const topItems = topRes ? topRes.map(i => ({ name: i.name, count: i.totalQuantity })) : [];
 
   const statCards = [
     { label: "Today's Revenue", value: `₹${stats.todayRevenue.toLocaleString()}`, icon: IndianRupee, change: `${stats.revenueChange > 0 ? '+' : ''}${stats.revenueChange}%`, isUp: stats.revenueChange >= 0 },
