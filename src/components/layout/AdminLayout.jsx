@@ -1,19 +1,20 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, UtensilsCrossed, ClipboardList, BarChart3,
-  QrCode, Settings, LogOut, Coffee, Bell, ChevronRight, Menu, X
+  QrCode, Settings, LogOut, Coffee, Bell, ChevronRight, Menu, X, Users
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useOrders } from '../../context/OrderContext';
 import { useState } from 'react';
 
-const sidebarLinks = [
-  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
-  { to: '/admin/orders', icon: ClipboardList, label: 'Orders' },
-  { to: '/admin/menu', icon: UtensilsCrossed, label: 'Menu' },
-  { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-  { to: '/admin/qr-codes', icon: QrCode, label: 'QR Codes' },
-  { to: '/admin/settings', icon: Settings, label: 'Settings' },
+const ALL_LINKS = [
+  { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true, roles: ['ADMIN', 'MANAGER', 'STAFF'] },
+  { to: '/admin/orders', icon: ClipboardList, label: 'Orders', roles: ['ADMIN', 'MANAGER', 'STAFF'] },
+  { to: '/admin/menu', icon: UtensilsCrossed, label: 'Menu', roles: ['ADMIN', 'MANAGER'] },
+  { to: '/admin/analytics', icon: BarChart3, label: 'Analytics', roles: ['ADMIN', 'MANAGER'] },
+  { to: '/admin/qr-codes', icon: QrCode, label: 'QR Codes', roles: ['ADMIN'] },
+  { to: '/admin/staff', icon: Users, label: 'Staff', roles: ['ADMIN'] },
+  { to: '/admin/settings', icon: Settings, label: 'Settings', roles: ['ADMIN'] },
 ];
 
 export default function AdminLayout() {
@@ -23,6 +24,8 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const newOrders = getNewOrdersCount();
+
+  const sidebarLinks = ALL_LINKS.filter(link => !user || !user.role || link.roles.includes(user.role));
 
   const handleLogout = () => {
     logout();

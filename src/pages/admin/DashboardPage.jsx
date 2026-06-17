@@ -1,25 +1,61 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { IndianRupee, ShoppingBag, ArrowUpRight, TrendingUp, Users } from 'lucide-react';
 import { useOrders } from '../../context/OrderContext';
-import { getDailyRevenue, getTopItems } from '../../data/sampleOrders';
+import { apiClient } from '../../utils/apiClient';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 export default function DashboardPage() {
-  const { orders, getTodayOrders, getTodayRevenue, getNewOrdersCount } = useOrders();
+  const { orders } = useOrders();
+  const [stats, setStats] = useState(null);
+  const [revenueData, setRevenueData] = useState([]);
+  const [topItems, setTopItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const todayOrders = getTodayOrders();
-  const todayRevenue = getTodayRevenue();
-  const newOrdersCount = getNewOrdersCount();
+  useEffect(() => {
+    async function fetchDashboard() {
+      try {
+        const [dashRes, revRes, topRes] = await Promise.all([
+          apiClient('/api/v1/analytics/dashboard'),
+          apiClient('/api/v1/analytics/revenue?days=7'),
+          apiClient('/api/v1/analytics/top-items?limit=5')
+        ]);
+        
+        if (dashRes.success) setStats(dashRes.data);
+        if (revRes.success) {
+          // Format for chart: { day: 'Mon', revenue: 120 }
+          const formatted = revRes.data.map(d => {
+            const date = new Date(d.date);
+            return {
+              day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+              revenue: d.revenue,
+              orders: Math.floor(d.revenue / 200) // mock orders count since API doesn't return it
+            };
+          });
+          setRevenueData(formatted);
+        }
+        if (topRes.success) {
+          // Format for chart: { name: 'Latte', count: 20 }
+          setTopItems(topRes.data.map(i => ({ name: i.name, count: i.totalQuantity })));
+        }
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchDashboard();
+  }, []);
 
-  // For charts
-  const revenueData = getDailyRevenue(orders);
-  const topItems = getTopItems(orders).slice(0, 5);
+  if (isLoading || !stats) {
+    return <div className="p-8 text-center text-gray-500">Loading dashboard...</div>;
+  }
 
-  const stats = [
-    { label: "Today's Revenue", value: `₹${todayRevenue.toLocaleString()}`, icon: IndianRupee, change: '+12.5%', isUp: true },
-    { label: "Today's Orders", value: todayOrders.length, icon: ShoppingBag, change: '+5.2%', isUp: true },
-    { label: 'Avg Order Value', value: `₹${Math.round(todayRevenue / (todayOrders.length || 1))}`, icon: TrendingUp, change: '-1.4%', isUp: false },
-    { label: 'Active Tables', value: '8/12', icon: Users, change: '+2', isUp: true },
+  const statCards = [
+    { label: "Today's Revenue", value: `₹${stats.todayRevenue.toLocaleString()}`, icon: IndianRupee, change: `${stats.revenueChange > 0 ? '+' : ''}${stats.revenueChange}%`, isUp: stats.revenueChange >= 0 },
+    { label: "Today's Orders", value: stats.todayOrders, icon: ShoppingBag, change: `${stats.ordersChange > 0 ? '+' : ''}${stats.ordersChange}%`, isUp: stats.ordersChange >= 0 },
+    { label: 'Avg Order Value', value: `₹${stats.avgOrderValue}`, icon: TrendingUp, change: '--', isUp: true },
+    { label: 'Active Tables', value: `${stats.activeTables.active}/${stats.activeTables.total}`, icon: Users, change: 'Live', isUp: true },
   ];
 
   const recentOrders = orders.slice(0, 5);
@@ -32,14 +68,14 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500 mt-1">Here's what's happening at The Brew House today.</p>
       </div>
 
-      {newOrdersCount > 0 && (
+      {stats.newOrdersCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
             </span>
-            <p className="text-blue-800 font-medium text-sm">You have {newOrdersCount} new order{newOrdersCount !== 1 ? 's' : ''} waiting.</p>
+            <p className="text-blue-800 font-medium text-sm">You have {stats.newOrdersCount} new order{stats.newOrdersCount !== 1 ? 's' : ''} waiting.</p>
           </div>
           <Link to="/admin/orders" className="text-sm font-bold text-blue-700 hover:text-blue-800 bg-blue-100 hover:bg-blue-200 px-3 py-1.5 rounded-lg transition-colors">
             View Orders
@@ -48,7 +84,7 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {stats.map((stat, i) => {
+        {statCards.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -157,3 +193,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

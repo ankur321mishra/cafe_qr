@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { Plus, Search, Edit2, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { useMenu } from '../../context/MenuContext';
 import toast from 'react-hot-toast';
+import ItemModal from '../../components/admin/ItemModal';
+import CategoryModal from '../../components/admin/CategoryModal';
 
 export default function MenuManagePage() {
   const { items, categories, toggleAvailability, deleteItem } = useMenu();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
 
   const filteredItems = items.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -28,10 +33,25 @@ export default function MenuManagePage() {
           <h1 className="text-2xl font-bold text-gray-900">Menu Management</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your items, categories, and availability.</p>
         </div>
-        <button className="flex items-center gap-2 bg-brown text-white px-4 py-2 rounded-lg font-medium hover:bg-brown-dark transition-colors shadow-sm">
-          <Plus size={18} />
-          Add New Item
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setIsCatModalOpen(true)}
+            className="flex items-center gap-2 bg-white border border-brown text-brown px-4 py-2 rounded-lg font-medium hover:bg-brown-50 transition-colors shadow-sm"
+          >
+            <Plus size={18} />
+            Add Category
+          </button>
+          <button 
+            onClick={() => {
+              setEditingItem(null);
+              setIsModalOpen(true);
+            }}
+            className="flex items-center gap-2 bg-brown text-white px-4 py-2 rounded-lg font-medium hover:bg-brown-dark transition-colors shadow-sm"
+          >
+            <Plus size={18} />
+            Add Item
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -130,6 +150,10 @@ export default function MenuManagePage() {
                       <td className="px-5 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button 
+                            onClick={() => {
+                              setEditingItem(item);
+                              setIsModalOpen(true);
+                            }}
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                             title="Edit Item"
                           >
@@ -152,6 +176,16 @@ export default function MenuManagePage() {
           </table>
         </div>
       </div>
+
+      <ItemModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        editingItem={editingItem} 
+      />
+      <CategoryModal
+        isOpen={isCatModalOpen}
+        onClose={() => setIsCatModalOpen(false)}
+      />
     </div>
   );
 }

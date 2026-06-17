@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, ChefHat, Clock, UtensilsCrossed, RefreshCw } from 'lucide-react';
 import { useOrders } from '../../context/OrderContext';
@@ -15,39 +15,52 @@ export default function OrderTrackPage() {
   const { getOrder } = useOrders();
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Initial load
-  useEffect(() => {
-    const data = getOrder(orderId);
+  const loadOrder = useCallback(async () => {
+    const data = await getOrder(orderId);
     if (!data) {
       navigate('/menu');
     } else {
       setOrder(data);
     }
+    setIsLoading(false);
   }, [orderId, getOrder, navigate]);
 
-  // Poll for updates (simulate real-time)
+  // Initial load
   useEffect(() => {
-    const interval = setInterval(() => {
-      const data = getOrder(orderId);
+    loadOrder();
+  }, [loadOrder]);
+
+  // Poll for updates every 5s
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const data = await getOrder(orderId);
       if (data && data.status !== order?.status) {
         setOrder(data);
       }
-    }, 5000); // Poll every 5s
+    }, 5000);
     return () => clearInterval(interval);
   }, [orderId, getOrder, order]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-brown-light font-medium">Loading order...</div>
+      </div>
+    );
+  }
 
   if (!order) return null;
 
   const currentStepIndex = STATUS_STEPS.findIndex(s => s.id === order.status);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setOrder(getOrder(orderId));
-      setIsRefreshing(false);
-    }, 800);
+    const data = await getOrder(orderId);
+    if (data) setOrder(data);
+    setIsRefreshing(false);
   };
 
   return (

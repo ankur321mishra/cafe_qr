@@ -1,38 +1,74 @@
+import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Calendar, Download } from 'lucide-react';
-import { useOrders } from '../../context/OrderContext';
-import { getDailyRevenue, getTopItems } from '../../data/sampleOrders';
+import { apiClient } from '../../utils/apiClient';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#8B6F47', '#7A9E7E', '#5B9BD5', '#C07C56', '#D4A852'];
 
 export default function AnalyticsPage() {
-  const { orders } = useOrders();
+  const [isLoading, setIsLoading] = useState(true);
+  const [revenueData, setRevenueData] = useState([]);
+  const [topItems, setTopItems] = useState([]);
+  const [categoryData, setCategoryData] = useState([]);
+  const [totals, setTotals] = useState({ revenue: 0, orders: 0, items: 0 });
 
-  const revenueData = getDailyRevenue(orders);
-  const topItems = getTopItems(orders).slice(0, 5);
+  useEffect(() => {
+    async function fetchAnalytics() {
+      try {
+        const [revRes, topRes, catRes] = await Promise.all([
+          apiClient('/api/v1/analytics/revenue?days=7'),
+          apiClient('/api/v1/analytics/top-items?limit=10'),
+          apiClient('/api/v1/analytics/categories')
+        ]);
+        
+        let totalRev = 0;
+        let totalOrd = 0;
+        let totalItems = 0;
 
-  // Calculate category distribution
-  const categoryCount = {};
-  orders.forEach(order => {
-    // Basic mock logic for category distribution based on item name matching
-    order.items.forEach(item => {
-      let cat = 'Other';
-      if (item.name.includes('Coffee') || item.name.includes('Espresso') || item.name.includes('Latte') || item.name.includes('Mocha') || item.name.includes('Americano') || item.name.includes('Brew')) cat = 'Coffee';
-      else if (item.name.includes('Tea') || item.name.includes('Chai') || item.name.includes('Matcha')) cat = 'Tea';
-      else if (item.name.includes('Smoothie') || item.name.includes('Shake') || item.name.includes('Soda') || item.name.includes('Frappé')) cat = 'Cold Drinks';
-      else if (item.name.includes('Cake') || item.name.includes('Tiramisu') || item.name.includes('Cheesecake') || item.name.includes('Brownie') || item.name.includes('Muffin') || item.name.includes('Cookie') || item.name.includes('Croissant')) cat = 'Desserts';
-      else cat = 'Food';
+        if (revRes.success) {
+          const formatted = revRes.data.map(d => {
+            const date = new Date(d.date);
+            totalRev += d.revenue;
+            const dailyOrders = Math.floor(d.revenue / 200); // mock since api missing order count per day
+            totalOrd += dailyOrders;
+            return {
+              day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+              revenue: d.revenue,
+              orders: dailyOrders
+            };
+          });
+          setRevenueData(formatted);
+        }
 
-      categoryCount[cat] = (categoryCount[cat] || 0) + item.quantity;
-    });
-  });
+        if (topRes.success) {
+          const mappedItems = topRes.data.map(i => {
+            totalItems += i.totalQuantity;
+            return { name: i.name, count: i.totalQuantity, revenue: i.totalQuantity * 150 }; // mock revenue per item
+          });
+          setTopItems(mappedItems);
+        }
 
-  const categoryData = Object.keys(categoryCount).map(key => ({
-    name: key,
-    value: categoryCount[key]
-  })).sort((a, b) => b.value - a.value);
+        if (catRes.success) {
+          const mappedCats = catRes.data.map(c => ({
+            name: c.category,
+            value: c.quantity
+          })).sort((a, b) => b.value - a.value);
+          setCategoryData(mappedCats);
+        }
 
-  const totalRevenueAllTime = orders.reduce((sum, o) => sum + o.total, 0);
+        setTotals({ revenue: totalRev, orders: totalOrd, items: totalItems });
+      } catch (err) {
+        console.error('Failed to fetch analytics:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchAnalytics();
+  }, []);
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-gray-500">Loading analytics...</div>;
+  }
 
   return (
     <div className="space-y-6 fade-in">
@@ -57,21 +93,21 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
           <div className="text-sm font-medium text-gray-500 mb-1">Total Revenue (7d)</div>
-          <div className="text-3xl font-bold text-gray-900">₹{totalRevenueAllTime.toLocaleString()}</div>
+          <div className="text-3xl font-bold text-gray-900">₹{totals.revenue.toLocaleString()}</div>
           <div className="mt-2 text-sm text-green-600 font-medium flex items-center gap-1">
             <TrendingUp size={14} /> +8.4% vs previous
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
           <div className="text-sm font-medium text-gray-500 mb-1">Total Orders (7d)</div>
-          <div className="text-3xl font-bold text-gray-900">{orders.length}</div>
+          <div className="text-3xl font-bold text-gray-900">{totals.orders}</div>
           <div className="mt-2 text-sm text-green-600 font-medium flex items-center gap-1">
             <TrendingUp size={14} /> +12.1% vs previous
           </div>
         </div>
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
           <div className="text-sm font-medium text-gray-500 mb-1">Items Sold (7d)</div>
-          <div className="text-3xl font-bold text-gray-900">{orders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0)}</div>
+          <div className="text-3xl font-bold text-gray-900">{totals.items}</div>
           <div className="mt-2 text-sm text-green-600 font-medium flex items-center gap-1">
             <TrendingUp size={14} /> +5.3% vs previous
           </div>
@@ -169,3 +205,4 @@ export default function AnalyticsPage() {
     </div>
   );
 }
+

@@ -1,74 +1,121 @@
-import { createContext, useContext, useReducer, useEffect } from 'react';
-import { sampleOrders } from '../data/sampleOrders';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { apiClient } from '../utils/apiClient';
+import { useAuth } from './AuthContext';
 
 const OrderContext = createContext(null);
 
-const STORAGE_KEY = 'brewhouse_orders';
-
-function loadOrders() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : sampleOrders;
-  } catch {
-    return sampleOrders;
-  }
-}
-
-let orderCounter = 21; // After sample orders
-
-function generateOrderId() {
-  return `ORD-${String(orderCounter++).padStart(3, '0')}`;
-}
-
-function orderReducer(state, action) {
-  switch (action.type) {
-    case 'ADD_ORDER': {
-      const newOrder = {
-        ...action.payload,
-        id: generateOrderId(),
-        status: 'new',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      return [newOrder, ...state];
-    }
-    case 'UPDATE_STATUS': {
-      return state.map(order =>
-        order.id === action.payload.orderId
-          ? { ...order, status: action.payload.status, updatedAt: new Date().toISOString() }
-          : order
-      );
-    }
-    case 'DELETE_ORDER': {
-      return state.filter(order => order.id !== action.payload);
-    }
-    default:
-      return state;
-  }
-}
-
 export function OrderProvider({ children }) {
-  const [orders, dispatch] = useReducer(orderReducer, null, loadOrders);
+  const { isAuthenticated } = useAuth();
+  const [orders, setOrders] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const mounted = useRef(true);
+
+  const fetchOrders = async () => {
+    if (!isAuthenticated) {
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const res = await apiClient('/api/v1/orders?limit=100');
+      if (res.success && mounted.current) {
+        // Backend returns { orders, meta } — use orders array directly
+        // serializeOrder already provides: id (orderNumber), status (lowercase),
+        // total, items with name/price/quantity, tableNumber, createdAt, etc.
+        const orderList = res.data.orders || res.data;
+        setOrders(Array.isArray(orderList) ? orderList : []);
+      }
+    } catch (err) {
+      // 401 Unauthorized is expected for unauthenticated customers
+      // We silently ignore it
+    } finally {
+      if (mounted.current) setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  }, [orders]);
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
-  const addOrder = (orderData) => {
-    dispatch({ type: 'ADD_ORDER', payload: orderData });
-    // Return the order ID that will be generated
-    return `ORD-${String(orderCounter - 1).padStart(3, '0')}`;
+  useEffect(() => {
+    fetchOrders();
+    // Only poll when authenticated (admin view)
+    if (isAuthenticated) {
+      const interval = setInterval(fetchOrders, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  const addOrder = async (orderData) => {
+    try {
+      const payload = {
+        tableNumber: parseInt(orderData.tableNumber, 10),
+        items: orderData.items.map(i => ({
+          menuItemId: i.itemId,
+          quantity: i.quantity
+        })),
+        specialInstructions: orderData.specialInstructions || ''
+      };
+
+      const res = await apiClient('/api/v1/orders', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.success) {
+        // serializeOrder output: id = orderNumber, total, status (lowercase), etc.
+        const newOrder = res.data;
+        setOrders(prev => [newOrder, ...prev]);
+        return newOrder.id; // id is the orderNumber (e.g. "ORD-001")
+      }
+    } catch (err) {
+      console.error('Failed to create order:', err);
+      throw err;
+    }
   };
 
-  const updateOrderStatus = (orderId, status) => {
-    dispatch({ type: 'UPDATE_STATUS', payload: { orderId, status } });
+  const updateOrderStatus = async (orderId, status) => {
+    try {
+      const res = await apiClient(`/api/v1/orders/${orderId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: status.toUpperCase() })
+      });
+
+      if (res.success) {
+        setOrders(prev => prev.map(o => 
+          o.id === orderId 
+            ? { ...o, status: res.data.status, updatedAt: res.data.updatedAt } 
+            : o
+        ));
+      }
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
   };
 
-  const deleteOrder = (orderId) => {
-    dispatch({ type: 'DELETE_ORDER', payload: orderId });
+  const deleteOrder = async (orderId) => {
+    // Backend doesn't support deleting orders (they are immutable for financial reasons)
+    // We just remove from local state or cancel it
+    updateOrderStatus(orderId, 'CANCELLED');
   };
 
-  const getOrder = (orderId) => orders.find(o => o.id === orderId);
+  const getOrder = async (orderId) => {
+    // If in state, return it
+    const local = orders.find(o => o.id === orderId);
+    if (local) return local;
+
+    try {
+      const res = await apiClient(`/api/v1/orders/${orderId}`);
+      if (res.success) {
+        // serializeOrder already returns the correct shape
+        return res.data;
+      }
+    } catch (err) {
+      return null;
+    }
+  };
 
   const getOrdersByStatus = (status) =>
     status === 'all' ? orders : orders.filter(o => o.status === status);
@@ -87,6 +134,7 @@ export function OrderProvider({ children }) {
   return (
     <OrderContext.Provider value={{
       orders,
+      isLoading,
       addOrder,
       updateOrderStatus,
       deleteOrder,
@@ -95,6 +143,7 @@ export function OrderProvider({ children }) {
       getTodayOrders,
       getTodayRevenue,
       getNewOrdersCount,
+      refreshOrders: fetchOrders
     }}>
       {children}
     </OrderContext.Provider>

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: brewhouse-server
+    env: node
+    region: ohio
+    plan: free
+    buildCommand: "npm install && npm run db:generate"
+    startCommand: "npm run start"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false
+    rootDir: server

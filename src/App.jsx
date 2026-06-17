@@ -11,6 +11,7 @@ import OrderTrackPage from './pages/customer/OrderTrackPage';
 
 // Admin pages
 import LoginPage from './pages/admin/LoginPage';
+import SignupPage from './pages/admin/SignupPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import MenuManagePage from './pages/admin/MenuManagePage';
 import OrdersPage from './pages/admin/OrdersPage';
@@ -22,9 +23,25 @@ import SettingsPage from './pages/admin/SettingsPage';
 import CustomerLayout from './components/layout/CustomerLayout';
 import AdminLayout from './components/layout/AdminLayout';
 
-function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
+import StaffPage from './pages/admin/StaffPage';
+
+function ProtectedRoute({ children, allowedRoles }) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="text-xl text-stone-600 font-medium">Loading session...</div>
+      </div>
+    );
+  }
+  
   if (!isAuthenticated) return <Navigate to="/admin/login" replace />;
+  
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/admin" replace />;
+  }
+  
   return children;
 }
 
@@ -44,20 +61,44 @@ export default function App() {
 
       {/* Admin Routes */}
       <Route path="/admin/login" element={<LoginPage />} />
+      <Route path="/admin/signup" element={<SignupPage />} />
       <Route
         path="/admin"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'STAFF']}>
             <AdminLayout />
           </ProtectedRoute>
         }
       >
         <Route index element={<DashboardPage />} />
-        <Route path="menu" element={<MenuManagePage />} />
         <Route path="orders" element={<OrdersPage />} />
-        <Route path="analytics" element={<AnalyticsPage />} />
-        <Route path="qr-codes" element={<QRCodesPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+        
+        <Route path="menu" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <MenuManagePage />
+          </ProtectedRoute>
+        } />
+        <Route path="analytics" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+            <AnalyticsPage />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="qr-codes" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <QRCodesPage />
+          </ProtectedRoute>
+        } />
+        <Route path="staff" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <StaffPage />
+          </ProtectedRoute>
+        } />
+        <Route path="settings" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <SettingsPage />
+          </ProtectedRoute>
+        } />
       </Route>
     </Routes>
   );

@@ -1,23 +1,71 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Printer, Download, Plus, Link as LinkIcon, Settings } from 'lucide-react';
-import tablesData, { getQrUrl } from '../../data/tablesData';
 import toast from 'react-hot-toast';
+import { apiClient } from '../../utils/apiClient';
+import { useAuth } from '../../context/AuthContext';
 
 export default function QRCodesPage() {
-  const [tables, setTables] = useState(tablesData);
-  // In a real app, this would be the actual deployed URL. For demo, we use origin.
+  const { user } = useAuth();
+  const [tables, setTables] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const baseUrl = window.location.origin;
 
+  useEffect(() => {
+    async function fetchTables() {
+      try {
+        const res = await apiClient('/api/v1/tables');
+        if (res.success) {
+          setTables(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch tables:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchTables();
+  }, []);
+
+  const getQrUrl = (tableNumber) => `${baseUrl}/menu?table=${tableNumber}`;
+
   const handleDownload = (tableNumber) => {
-    // In a real app, you would generate a Canvas from the SVG and trigger a download.
-    // For this demo, we just show a toast.
     toast.success(`QR Code for Table ${tableNumber} downloaded`);
+  };
+
+  const handleAddTable = async () => {
+    const input = window.prompt("Enter new Table Number:");
+    if (!input) return;
+    
+    const number = parseInt(input, 10);
+    if (isNaN(number) || number <= 0) {
+      toast.error("Please enter a valid positive table number.");
+      return;
+    }
+
+    try {
+      const res = await apiClient('/api/v1/tables', {
+        method: 'POST',
+        body: JSON.stringify({ number, label: `Table ${number}` })
+      });
+
+      if (res.success) {
+        toast.success(`Table ${number} added successfully`);
+        setTables([...tables, res.data]);
+      } else {
+        toast.error(res.error?.message || res.error || 'Failed to add table');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('An error occurred while adding table');
+    }
   };
 
   const handlePrintAll = () => {
     window.print();
   };
+
+  if (isLoading) return <div className="p-8 text-center text-gray-500">Loading tables...</div>;
 
   return (
     <div className="space-y-6 fade-in">
@@ -27,7 +75,10 @@ export default function QRCodesPage() {
           <p className="text-sm text-gray-500 mt-1">Generate and print QR codes for your tables.</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors shadow-sm">
+          <button 
+            onClick={handleAddTable}
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors shadow-sm"
+          >
             <Plus size={18} />
             Add Table
           </button>
@@ -54,12 +105,12 @@ export default function QRCodesPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 print:grid-cols-3 print:gap-8">
         {tables.filter(t => t.isActive).map(table => {
-          const url = getQrUrl(baseUrl, table.number);
+          const url = getQrUrl(table.tableNumber);
           
           return (
             <div key={table.id} className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col items-center text-center shadow-sm hover:shadow-md transition-shadow">
-              <h2 className="text-xl font-bold text-gray-900 mb-1">{table.label}</h2>
-              <p className="text-xs text-gray-500 mb-6 font-mono bg-gray-50 px-2 py-1 rounded">The Brew House</p>
+              <h2 className="text-xl font-bold text-gray-900 mb-1">Table {table.tableNumber}</h2>
+              <p className="text-xs text-gray-500 mb-6 font-mono bg-gray-50 px-2 py-1 rounded">My Cafe</p>
               
               <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-6">
                 <QRCodeSVG
@@ -84,7 +135,7 @@ export default function QRCodesPage() {
                   <LinkIcon size={18} />
                 </button>
                 <button 
-                  onClick={() => handleDownload(table.number)}
+                  onClick={() => handleDownload(table.tableNumber)}
                   className="flex items-center gap-2 text-sm font-medium text-brown hover:text-brown-dark bg-brown/10 hover:bg-brown/20 px-4 py-2 rounded-lg transition-colors"
                 >
                   <Download size={16} /> Download
@@ -97,3 +148,4 @@ export default function QRCodesPage() {
     </div>
   );
 }
+

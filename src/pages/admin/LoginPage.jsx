@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { Coffee, Lock, Mail, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -20,10 +20,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
 
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    const result = login(email, password);
+    const result = await login(email, password);
     if (result.success) {
       navigate('/admin');
     } else {
@@ -126,6 +123,13 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
+
+          <div className="mt-6 text-center text-sm">
+            <span className="text-gray-600">Don't have an account? </span>
+            <Link to="/admin/signup" className="font-medium text-brown hover:text-brown-dark transition-colors">
+              Sign up
+            </Link>
+          </div>
 
           <div className="mt-6">
             <div className="relative">

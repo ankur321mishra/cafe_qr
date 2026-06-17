@@ -1,50 +1,84 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { apiClient, setAccessToken } from '../utils/apiClient';
 
 const AuthContext = createContext(null);
 
-const STORAGE_KEY = 'brewhouse_auth';
-
-// Demo credentials
-const DEMO_EMAIL = 'admin@brewhouse.com';
-const DEMO_PASSWORD = 'demo123';
-
-function loadAuth() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : null;
-  } catch {
-    return null;
-  }
-}
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(loadAuth);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
+  const hasRunInit = useRef(false);
+
+  // Hydrate session on app mount
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  }, [user]);
+    if (hasRunInit.current) return;
+    hasRunInit.current = true;
 
-  const login = (email, password) => {
-    if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-      const userData = {
-        email: DEMO_EMAIL,
-        name: 'Admin',
-        role: 'admin',
-        cafeName: 'The Brew House',
-        token: 'demo-jwt-token-' + Date.now(),
-      };
-      setUser(userData);
-      return { success: true, user: userData };
+    async function initAuth() {
+      try {
+        // Try to refresh token silently if there is a valid httpOnly cookie
+        const BASE_URL = import.meta.env.VITE_API_URL || '';
+        const res = await apiClient(`${BASE_URL}/api/v1/auth/refresh`, { method: 'POST' });
+        if (res.success && res.data) {
+          setAccessToken(res.data.accessToken);
+          setUser(res.data.user);
+        }
+      } catch (err) {
+        // No valid session, stay logged out
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
     }
-    return { success: false, error: 'Invalid email or password' };
+    
+    initAuth();
+  }, []);
+
+  const login = async (email, password) => {
+    try {
+      const res = await apiClient('/api/v1/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (res.success) {
+        setAccessToken(res.data.accessToken);
+        setUser(res.data.user);
+        return { success: true, user: res.data.user };
+      }
+      return { success: false, error: 'Login failed' };
+    } catch (err) {
+      return { success: false, error: err.message || 'Invalid email or password' };
+    }
   };
 
-  const logout = () => {
-    setUser(null);
+  const register = async (name, email, password) => {
+    try {
+      const res = await apiClient('/api/v1/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      if (res.success) {
+        setAccessToken(res.data.accessToken);
+        setUser(res.data.user);
+        return { success: true, user: res.data.user };
+      }
+      return { success: false, error: 'Registration failed' };
+    } catch (err) {
+      return { success: false, error: err.message || 'Registration failed. Please check your inputs.' };
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await apiClient('/api/v1/auth/logout', { method: 'POST' });
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setAccessToken(null);
+      setUser(null);
+    }
   };
 
   const isAuthenticated = !!user;
@@ -53,7 +87,9 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user,
       isAuthenticated,
+      isLoading,
       login,
+      register,
       logout,
     }}>
       {children}
@@ -66,3 +102,4 @@ export function useAuth() {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
+

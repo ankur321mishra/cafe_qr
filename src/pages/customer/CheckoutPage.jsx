@@ -6,7 +6,7 @@ import { useOrders } from '../../context/OrderContext';
 import toast from 'react-hot-toast';
 
 export default function CheckoutPage() {
-  const { items, subtotal, tax, total, tableNumber, clearCart } = useCart();
+  const { items, subtotal, tax, taxRate, total, tableNumber, clearCart } = useCart();
   const { addOrder } = useOrders();
   const location = useLocation();
   const navigate = useNavigate();
@@ -27,9 +27,6 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     const orderData = {
       tableNumber,
       items: items.map(i => ({ ...i })),
@@ -39,10 +36,14 @@ export default function CheckoutPage() {
       specialInstructions: instructions,
     };
 
-    const newOrderId = addOrder(orderData);
-    clearCart();
-
-    navigate(`/order-success/${newOrderId}`, { replace: true });
+    try {
+      const newOrderId = await addOrder(orderData);
+      clearCart();
+      navigate(`/order-success/${newOrderId}`, { replace: true });
+    } catch (err) {
+      toast.error('Failed to place order. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -98,7 +99,7 @@ export default function CheckoutPage() {
             <span>₹{subtotal}</span>
           </div>
           <div className="flex justify-between text-sm text-brown-light">
-            <span>Taxes & Charges (5%)</span>
+            <span>Taxes & Charges ({taxRate}%)</span>
             <span>₹{tax}</span>
           </div>
           <div className="border-t border-beige/40 pt-3 flex justify-between items-center">

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../context/OrderContext';
 
@@ -6,14 +6,32 @@ export default function OrderSuccessPage() {
   const { orderId } = useParams();
   const { getOrder } = useOrders();
   const navigate = useNavigate();
-
-  const order = getOrder(orderId);
+  const [order, setOrder] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!order) {
-      navigate('/menu');
+    let cancelled = false;
+    async function load() {
+      const data = await getOrder(orderId);
+      if (cancelled) return;
+      if (!data) {
+        navigate('/menu');
+      } else {
+        setOrder(data);
+      }
+      setIsLoading(false);
     }
-  }, [order, navigate]);
+    load();
+    return () => { cancelled = true; };
+  }, [orderId, getOrder, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <div className="text-brown-light font-medium">Loading order...</div>
+      </div>
+    );
+  }
 
   if (!order) return null;
 

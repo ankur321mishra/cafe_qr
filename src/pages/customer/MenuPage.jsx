@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Search, X, Flame, Star, ShoppingCart, Plus, MapPin } from 'lucide-react';
 import { useMenu } from '../../context/MenuContext';
 import { useCart } from '../../context/CartContext';
+import { apiClient } from '../../utils/apiClient';
 import toast from 'react-hot-toast';
 
 export default function MenuPage() {
@@ -13,10 +14,24 @@ export default function MenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
 
-  // Detect table number from URL
+  // Detect table number from URL and validate
   useEffect(() => {
     const table = searchParams.get('table');
-    if (table) setTable(parseInt(table));
+    if (table) {
+      const tableNum = parseInt(table);
+      apiClient(`/api/v1/tables/validate/${tableNum}`)
+        .then(res => {
+          if (res.success && res.data?.isActive) {
+            setTable(tableNum);
+          } else {
+            toast.error('Invalid or inactive table');
+          }
+        })
+        .catch(() => {
+          // Validation endpoint missing or failed — set anyway for backwards compat
+          setTable(tableNum);
+        });
+    }
   }, [searchParams, setTable]);
 
   const popularItems = getPopularItems();
@@ -31,8 +46,8 @@ export default function MenuPage() {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         i => i.name.toLowerCase().includes(q) ||
-             i.description.toLowerCase().includes(q) ||
-             i.tags.some(t => t.includes(q))
+             i.description?.toLowerCase().includes(q) ||
+             i.tags?.some(t => t.includes(q))
       );
     }
     return result;

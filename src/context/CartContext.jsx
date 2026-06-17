@@ -1,4 +1,5 @@
-import { createContext, useContext, useReducer, useEffect } from 'react';
+import { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import { apiClient } from '../utils/apiClient';
 
 const CartContext = createContext(null);
 
@@ -67,6 +68,20 @@ function cartReducer(state, action) {
 
 export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, null, loadCart);
+  const [taxRate, setTaxRate] = useState(5); // default 5%, will be overridden by settings
+
+  // Fetch tax rate from public settings
+  useEffect(() => {
+    apiClient('/api/v1/settings/public')
+      .then(res => {
+        if (res.success && res.data?.taxRate != null) {
+          setTaxRate(res.data.taxRate);
+        }
+      })
+      .catch(() => {
+        // Settings fetch failed — use default 5%
+      });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -81,7 +96,7 @@ export function CartProvider({ children }) {
 
   const itemCount = state.items.reduce((sum, i) => sum + i.quantity, 0);
   const subtotal = state.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const tax = Math.round(subtotal * 0.05);
+  const tax = Math.round(subtotal * (taxRate / 100));
   const total = subtotal + tax;
 
   return (
@@ -91,6 +106,7 @@ export function CartProvider({ children }) {
       itemCount,
       subtotal,
       tax,
+      taxRate,
       total,
       addItem,
       removeItem,
