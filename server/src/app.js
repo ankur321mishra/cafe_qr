@@ -35,7 +35,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }))
-app.options('*', cors())
 
 // 3. Body parsers (limit payload size to prevent DOS)
 app.use(express.json({ limit: '10kb' }));
