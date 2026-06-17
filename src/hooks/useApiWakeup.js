@@ -17,8 +17,11 @@ export default function useApiWakeup() {
     }, 3000);
 
     try {
-      const fetchPromise = fetch(`${import.meta.env.VITE_API_URL}/health`, {
+      const fetchPromise = fetch(`${import.meta.env.VITE_API_URL}/api/v1/health`, {
         signal: abortControllerRef.current.signal
+      }).then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res;
       });
       
       const timeoutPromise = new Promise((_, reject) => 

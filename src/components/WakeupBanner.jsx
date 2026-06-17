@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 
 export default function WakeupBanner({ status, retry }) {
   const [elapsed, setElapsed] = useState(0);
