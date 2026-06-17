@@ -28,7 +28,7 @@ export function MenuProvider({ children }) {
   };
 
   useEffect(() => {
-    if (!isAuthLoading) {
+    if (!isAuthLoading && user) {
       fetchMenu();
     }
   }, [isAuthLoading, user]);

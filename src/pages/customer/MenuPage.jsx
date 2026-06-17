@@ -5,14 +5,25 @@ import { useMenu } from '../../context/MenuContext';
 import { useCart } from '../../context/CartContext';
 import { apiClient } from '../../utils/apiClient';
 import toast from 'react-hot-toast';
+import useApiWakeup from '../../hooks/useApiWakeup';
+import WakeupBanner from '../../components/WakeupBanner';
 
 export default function MenuPage() {
-  const { items, categories, getItemsByCategory, getPopularItems, getFeaturedItems } = useMenu();
+  const { items, categories, getItemsByCategory, getPopularItems, getFeaturedItems, refreshMenu } = useMenu();
   const { addItem, setTable, tableNumber, itemCount } = useCart();
   const [searchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const { status, retry } = useApiWakeup();
+  const [hasTriggeredFetch, setHasTriggeredFetch] = useState(false);
+
+  useEffect(() => {
+    if (status === 'ready' && !hasTriggeredFetch && items.length === 0) {
+      refreshMenu();
+      setHasTriggeredFetch(true);
+    }
+  }, [status, hasTriggeredFetch, items.length, refreshMenu]);
 
   // Detect table number from URL and validate
   useEffect(() => {
@@ -69,8 +80,10 @@ export default function MenuPage() {
 
   return (
     <div className="pb-4 slide-up">
+      <WakeupBanner status={status} retry={retry} />
+      
       {/* Welcome Banner */}
-      {featuredItems.length > 0 && (
+      {status === 'ready' && featuredItems.length > 0 && (
         <div className="mx-4 mt-4 bg-brown-gradient rounded-2xl p-5 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
@@ -151,7 +164,7 @@ export default function MenuPage() {
       </div>
 
       {/* Popular Items Section */}
-      {activeCategory === 'all' && !searchQuery && (
+      {status === 'ready' && activeCategory === 'all' && !searchQuery && (
         <div className="mt-6">
           <div className="px-4 flex items-center gap-2 mb-3">
             <Flame size={18} className="text-terracotta" />
@@ -196,7 +209,26 @@ export default function MenuPage() {
           <span className="text-xs text-brown-light font-medium">{filteredItems.length} items</span>
         </div>
 
-        {filteredItems.length === 0 ? (
+        {status === 'error' ? (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-3">⚠️</div>
+            <p className="text-sm text-brown-light font-medium">Failed to load menu</p>
+            <p className="text-xs text-brown-light/60 mt-1">Please check your connection and try again.</p>
+          </div>
+        ) : status === 'waking' || status === 'idle' ? (
+          <div className="grid grid-cols-2 gap-3 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-white rounded-xl border border-beige/40 overflow-hidden h-48">
+                <div className="h-28 bg-beige/30"></div>
+                <div className="p-3">
+                  <div className="h-4 bg-beige/40 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-beige/30 rounded w-full mb-1"></div>
+                  <div className="h-3 bg-beige/30 rounded w-5/6"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-4xl mb-3">🔍</div>
             <p className="text-sm text-brown-light font-medium">No items found</p>
