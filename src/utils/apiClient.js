@@ -89,7 +89,13 @@ export async function apiClient(endpoint, options = {}, _isRetry = false) {
   }
 
   if (!response.ok) {
-    let errorMsg = data?.error?.message || response.statusText;
+    let errorMsg = response.statusText;
+    if (typeof data?.error === 'string') {
+      errorMsg = data.error;
+    } else if (data?.error?.message) {
+      errorMsg = data.error.message;
+    }
+
     if (data?.error?.details && Array.isArray(data.error.details)) {
       const detailMessages = data.error.details.map(d => d.message).join(', ');
       errorMsg = `${errorMsg}: ${detailMessages}`;
