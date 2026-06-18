@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { apiClient } from '../utils/apiClient';
+import { apiClient, getAccessToken } from '../utils/apiClient';
 import { useAuth } from './AuthContext';
 
 const OrderContext = createContext(null);
@@ -11,7 +11,7 @@ export function OrderProvider({ children }) {
   const mounted = useRef(true);
 
   const fetchOrders = async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !getAccessToken()) {
       setIsLoading(false);
       return;
     }

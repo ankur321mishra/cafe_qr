@@ -1,4 +1,5 @@
 let accessToken = null;
+let refreshPromise = null;
 
 export function setAccessToken(token) {
   accessToken = token;
@@ -54,21 +55,36 @@ export async function apiClient(endpoint, options = {}, _isRetry = false) {
 
   // On 401, attempt a silent refresh (once) for non-auth endpoints
   if (response.status === 401 && !_isRetry && !AUTH_ENDPOINTS.some(e => endpoint.startsWith(e))) {
-    try {
-      const refreshUrl = `${BASE_URL}/api/v1/auth/refresh`;
-      const refreshRes = await fetch(refreshUrl, {
+    if (!refreshPromise) {
+      refreshPromise = fetch(`${BASE_URL}/api/v1/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+      }).then(async (res) => {
+        if (!res.ok) throw new Error('Refresh failed');
+        const refreshData = await res.json();
+        if (!refreshData.success || !refreshData.data?.accessToken) {
+          throw new Error('No access token in refresh response');
+        }
+        return refreshData.data.accessToken;
+      }).finally(() => {
+        refreshPromise = null;
       });
-      const refreshData = await refreshRes.json();
-      if (refreshRes.ok && refreshData.success && refreshData.data?.accessToken) {
-        setAccessToken(refreshData.data.accessToken);
-        // Retry the original request with the new token
-        return apiClient(endpoint, options, true);
-      }
+    }
+
+    try {
+      const newAccessToken = await refreshPromise;
+      setAccessToken(newAccessToken);
+      // Retry the original request with the new token
+      return await apiClient(endpoint, options, true);
     } catch (refreshErr) {
-      // Refresh failed — fall through to error below
+      // Refresh failed completely (e.g. invalid/expired refresh token)
+      setAccessToken(null);
+      // Stop the loop by redirecting out of the protected admin area
+      if (window.location.pathname.startsWith('/admin') && window.location.pathname !== '/admin/login') {
+        window.location.href = '/admin/login';
+      }
+      throw new Error('Session expired. Please log in again.');
     }
   }
 
