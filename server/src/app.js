@@ -13,6 +13,9 @@ import apiRoutes from './routes/index.js';
 
 const app = express();
 
+// Trust proxy to allow express-rate-limit to see real IPs behind Render
+app.set('trust proxy', 1);
+
 // 1. Security Headers
 app.use(helmet());
 
